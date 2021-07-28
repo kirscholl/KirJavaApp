@@ -1,38 +1,199 @@
-plugins {
-    id 'com.android.application'
-}
+apply plugin: 'com.android.application'
+apply plugin: 'org.greenrobot.greendao'
+apply plugin: 'android-aspectjx'
+//apply from: 'jacoco.gradle'
+//apply from: this.project.file("releaseinfo.gradle")
+apply plugin: 'me.ele.lancet'
+//apply from: project.file('plugin-bytex.gradle')
+
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion "30.0.3"
-
+    compileSdkVersion rootProject.ext.android["compileSdkVersion"]
+    buildToolsVersion rootProject.ext.android["buildToolsVersion"]
+//    signingConfigs {
+//        release {
+//            storeFile file(RELEASE_STORE_FILE)
+//            storePassword RELEASE_STORE_PASSWORD
+//            keyAlias RELEASE_KEY_ALIAS
+//            keyPassword RELEASE_KEY_PASSWORD
+//        }
+//    }
     defaultConfig {
-        applicationId "com.example.kirjavaapp"
-        minSdkVersion 16
-        targetSdkVersion 30
-        versionCode 1
-        versionName "1.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        applicationId "json.chao.com.wanandroid"
+        minSdkVersion rootProject.ext.android["minSdkVersion"]
+        targetSdkVersion rootProject.ext.android["targetSdkVersion"]
+        versionCode rootProject.ext.android["versionCode"]
+        versionName rootProject.ext.android["versionName"]
+        //AndroidJunitRunner必须要显示指定在defaultConfig中，使用Gradle依赖管理无法使其生效
+        testInstrumentationRunner 'android.support.test.runner.AndroidJUnitRunner'
+        renderscriptTargetApi rootProject.ext.android["renderscriptTargetApi"]
+        renderscriptSupportModeEnabled true    // Enable RS support
+        multiDexEnabled true
+        vectorDrawables.useSupportLibrary = true
+        ndk {
+            abiFilters "armeabi", "armeabi-v7a" //选择要使用的平台
+        }
+        resConfigs "zh", "zh-rCN"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            // 是否进行混淆
+            minifyEnabled true
+            // 开启zipAlign可以让安装包中的资源按4字节对齐，这样可以减少应用在运行时的内存消耗
+            zipAlignEnabled true
+            // 移除无用的resource文件
+            // 需要注意的是目前资源压缩器目前不会移除values/文件夹中定义的资源（例如字符串、尺寸、样式和颜色）
+            shrinkResources true
+            // 混淆文件的位置，其中 proguard-android.txt 为sdk默认的混淆配置，
+            // 它的位置位于android-sdk/tools/proguard/proguard-android.txt，
+            // 此外，proguard-android-optimize.txt 也为sdk默认的混淆配置，
+            // 但是它默认打开了优化开关，我们可在配置混淆文件将android.util.Log置为无效代码，
+            // 以去除apk中打印日志的代码。而 proguard-rules.pro 是该模块下的混淆配置。
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+//            signingConfig signingConfigs.release
+        }
+        debug {
+//            signingConfig signingConfigs.release
         }
     }
+
+    testOptions {
+        unitTests {
+            // Fix unit test resources not included with AS3
+            includeAndroidResources = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    flavorDimensions "code"
+    productFlavors {
+        speed {
+            minSdkVersion 17
+        }
+    }
+
+    packagingOptions {
+        exclude 'META-INF/services/javax.annotation.processing.Processor'
+    }
+
+    dexOptions {
+        jumboMode true
+        javaMaxHeapSize "4g"
+    }
+
+    aaptOptions {
+        // 在Android的构建流程中，AAPT会使用内置的
+        // 压缩算法来优化res/drawable/目录下的PNG图片，
+        // 但这可能会导致本来已经优化过的图片体积变大，
+        // 因此需要禁止AAPT来优化PNG图片
+        cruncherEnabled = false
+    }
 }
 
-dependencies {
+greendao {
+    schemaVersion 1
+    targetGenDir 'src/main/java'
+    daoPackage 'json.chao.com.wanandroid.core.dao'
+}
 
-    implementation 'androidx.appcompat:appcompat:1.3.0'
-    implementation 'com.google.android.material:material:1.4.0'
-    testImplementation 'junit:junit:4.+'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+def implementationDependencies = rootProject.ext.dependencies
+def processors = rootProject.ext.annotationProcessor
+def apiFileDependencies = rootProject.ext.apiFileDependencies
+
+def debugImplementationDependencies = rootProject.ext.debugImplementationDependencies
+def releaseImplementationDependencies = rootProject.ext.releaseImplementationDependencies
+def androidTestImplementationDependencies = rootProject.ext.androidTestImplementationDependencies
+def testImplementationDependencies = rootProject.ext.testImplementationDependencies
+
+def debugApiDependencies = rootProject.ext.debugApiDependencies
+def releaseApiDependencies = rootProject.ext.releaseApiDependencies
+def compileOnlyDependencies = rootProject.ext.compileOnlyDependencies
+
+def implementationExcludes = rootProject.ext.implementationExcludes
+def debugImplementationExcludes = rootProject.ext.debugImplementationExcludes
+def releaseImplementationExcludes = rootProject.ext.releaseImplementationExcludes
+def testImplementationExclude = rootProject.ext.testImplementationExcludes
+def androidTestImplementationExcludes = rootProject.ext.androidTestImplementationExcludes
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+
+    // 处理所有的 aar 依赖
+    apiFileDependencies.each { k, v -> api files(v)}
+
+    // 处理所有的 xxximplementation 依赖
+    implementationDependencies.each { k, v -> implementation v }
+    debugImplementationDependencies.each { k, v -> debugImplementation v }
+    releaseImplementationDependencies.each { k, v -> releaseImplementation v }
+    androidTestImplementationDependencies.each { k, v -> androidTestImplementation v }
+    testImplementationDependencies.each { k, v -> testImplementation v }
+    debugApiDependencies.each { k, v -> debugApi v }
+    releaseApiDependencies.each { k, v -> releaseApi v }
+    compileOnlyDependencies.each { k, v -> compileOnly v }
+
+    // 处理 annotationProcessor 依赖
+    processors.each { k, v -> annotationProcessor v }
+
+    // 处理所有包含 exclude 的依赖
+    implementationExcludes.each { entry ->
+        implementation(entry.key) {
+            entry.value.each { childEntry ->
+                exclude(group: childEntry)
+            }
+        }
+    }
+    debugImplementationExcludes.each { entry ->
+        debugImplementation(entry.key) {
+            entry.value.each { childEntry ->
+                exclude(group: childEntry.key, module: childEntry.value)
+            }
+        }
+    }
+    releaseImplementationExcludes.each { entry ->
+        releaseImplementation(entry.key) {
+            entry.value.each { childEntry ->
+                exclude(group: childEntry.key, module: childEntry.value)
+            }
+        }
+    }
+    testImplementationExclude.each { entry ->
+        testImplementation(entry.key) {
+            entry.value.each { childEntry ->
+                exclude(group: childEntry.key, module: childEntry.value)
+            }
+        }
+    }
+    androidTestImplementationExcludes.each { entry ->
+        androidTestImplementation(entry.key) {
+            entry.value.each { childEntry ->
+                exclude(group: childEntry.key, module: childEntry.value)
+            }
+        }
+    }
+
+    // httpDns 优化
+    api ('com.aliyun.ams:alicloud-android-httpdns:1.3.2@aar') {
+        transitive true
+    }
+}
+
+//解决支持库版本不兼容问题
+configurations.all {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        def requested = details.requested
+        if (requested.group == 'com.android.support') {
+            if (!requested.name.startsWith("multidex")) {
+                details.useVersion '26.1.0'
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
 }
